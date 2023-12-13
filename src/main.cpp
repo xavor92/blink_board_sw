@@ -40,6 +40,9 @@ void setup_gpio()
   unsigned int i;
   Wire.begin(0, 2);
 
+  Serial.println("");
+  Serial.println("");
+  Serial.println("Setting up MCP23X17 and GPIOs");
   if (!mcp.begin_I2C()) {
     Serial.print("Error in ");
     Serial.println(__func__);
@@ -54,6 +57,19 @@ void setup_gpio()
   for(i = 0; i<(sizeof(btns)/sizeof(btns[0])); i++) {
     mcp.pinMode(btns[i], INPUT_PULLUP);
   }
+
+  // Test outputs
+  for(i = 0; i<(sizeof(leds)/sizeof(leds[0])); i++) {
+    mcp.digitalWrite(leds[i], LOW);
+    delay(100);
+    mcp.digitalWrite(leds[i], HIGH);
+  }
+
+  Serial.print("Button states: [");
+  Serial.print(mcp.digitalRead(PIN_BTN_1));
+  Serial.print("] [");
+  Serial.print(mcp.digitalRead(PIN_BTN_2));
+  Serial.println("]");
 }
 
 void setup_wifi() {
@@ -139,13 +155,6 @@ void loop()
     // turn led on
     mcp.digitalWrite(PIN_BLINK_LED, LOW);
     blink_led_state = true;
-
-    // move me
-    Serial.println("Scanning...");
-    Serial.print("Btn1: ");
-    Serial.print(mcp.digitalRead(PIN_BTN_1));
-    Serial.print("Btn2: ");
-    Serial.println(mcp.digitalRead(PIN_BTN_2));
   }
 
   // turn it off later
