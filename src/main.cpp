@@ -53,26 +53,36 @@ void setup_gpio()
 }
 
 void setup_wifi() {
-  delay(10);
-  // We start by connecting to a WiFi network
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
+  int attempts;
+  for (int i = 0; i < (sizeof(ssids) / sizeof(*ssids)); i++)
+  {
+    attempts = 0;
+    delay(10);
+    // We start by connecting to a WiFi network
+    Serial.println();
+    Serial.print("Connecting to ");
+    Serial.println(ssids[i]);
 
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssids[i], passwords[i]);
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+    while (WiFi.status() != WL_CONNECTED && attempts++ < 10) {
+      delay(500);
+      Serial.print(".");
+      Serial.print(attempts);
+    }
+
+    if (WiFi.status() != WL_CONNECTED) {
+      continue;
+    }
+
+    randomSeed(micros());
+
+    Serial.println("");
+    Serial.println("WiFi connected");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
   }
-
-  randomSeed(micros());
-
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
