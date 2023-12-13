@@ -4,6 +4,7 @@
 #include <Adafruit_MCP23X17.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
+#include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 
 #include "secrets.h"
 
@@ -30,6 +31,9 @@ const unsigned long blink_period = 5000;
 const unsigned long blink_on_phase = 500;
 unsigned long next_blink;
 bool blink_led_state;  // true = on
+bool four_led_state;
+const unsigned long four_led_period = 1000;
+unsigned long four_led_off;
 
 void setup_gpio()
 {
@@ -53,40 +57,28 @@ void setup_gpio()
 }
 
 void setup_wifi() {
-  int attempts;
-  for (unsigned int i = 0; i < (sizeof(ssids) / sizeof(*ssids)); i++)
-  {
-    attempts = 0;
-    delay(10);
-    // We start by connecting to a WiFi network
-    Serial.println();
-    Serial.print("Connecting to ");
-    Serial.println(ssids[i]);
+  bool res;
+  Serial.setDebugOutput(true);
 
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(ssids[i], passwords[i]);
+  WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
+  WiFiManager wm;
+  delay(3000);
+  Serial.println("\n Starting");
 
-    while (WiFi.status() != WL_CONNECTED && attempts++ < 10) {
-      delay(500);
-      Serial.print(".");
-      Serial.print(attempts);
-    }
-
-    if (WiFi.status() != WL_CONNECTED) {
-      continue;
-    }
-
-    randomSeed(micros());
-
-    Serial.println("");
-    Serial.println("WiFi connected");
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
+  res = wm.autoConnect("BLINK_Board");
+  if(!res) {
+    Serial.println("Failed to connect or hit timeout");
+    // ESP.restart();
+  } 
+  else {
+    //if you get here you have connected to the WiFi    
+    Serial.println("connected...yeey :)");
   }
+
+  Serial.setDebugOutput(false);
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
-  unsigned int i;
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("] ");
@@ -94,9 +86,15 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Serial.print((char)payload[i]);
   }
   Serial.println();
-  for(i = 0; i<(sizeof(leds)/sizeof(leds[0])); i++) {
-    mcp.digitalWrite(leds[i], LOW);
-  }
+
+  // turn on four LEDs
+  mcp.digitalWrite(PIN_RED1_LED, LOW);
+  mcp.digitalWrite(PIN_RED2_LED, LOW);
+  mcp.digitalWrite(PIN_GREEN1_LED, LOW);
+  mcp.digitalWrite(PIN_GREEN2_LED, LOW);
+  
+  four_led_state = true;
+  four_led_off = millis() + four_led_period;
 }
 
 void reconnect() {
@@ -148,16 +146,21 @@ void loop()
     Serial.print(mcp.digitalRead(PIN_BTN_1));
     Serial.print("Btn2: ");
     Serial.println(mcp.digitalRead(PIN_BTN_2));
+  }
 
-
-  } else if (blink_led_state && now > (next_blink + blink_on_phase)) {
+  // turn it off later
+  if (blink_led_state && now > (next_blink + blink_on_phase)) {
     next_blink += blink_period;
     mcp.digitalWrite(PIN_BLINK_LED, HIGH);
     blink_led_state = false;
   }
 
-  for(i = 0; i<(sizeof(leds)/sizeof(leds[0])); i++) {
-    mcp.digitalWrite(leds[i], HIGH);
+  // turn off other LEDs after callback turned them on
+  if (four_led_state && now > four_led_off) {
+    mcp.digitalWrite(PIN_RED1_LED, HIGH);
+    mcp.digitalWrite(PIN_RED2_LED, HIGH);
+    mcp.digitalWrite(PIN_GREEN1_LED, HIGH);
+    mcp.digitalWrite(PIN_GREEN2_LED, HIGH);
   }
 
   if (!client.connected()) {
