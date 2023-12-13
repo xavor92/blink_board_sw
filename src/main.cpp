@@ -24,7 +24,7 @@ PubSubClient client(espClient);
 unsigned long lastMsg = 0;
 #define MSG_BUFFER_SIZE	(50)
 char msg[MSG_BUFFER_SIZE];
-int value = 0;
+long int value = 0;
 
 const unsigned long blink_period = 5000;
 const unsigned long blink_on_phase = 500;
@@ -54,7 +54,7 @@ void setup_gpio()
 
 void setup_wifi() {
   int attempts;
-  for (int i = 0; i < (sizeof(ssids) / sizeof(*ssids)); i++)
+  for (unsigned int i = 0; i < (sizeof(ssids) / sizeof(*ssids)); i++)
   {
     attempts = 0;
     delay(10);
@@ -90,7 +90,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("] ");
-  for (int i = 0; i < length; i++) {
+  for (unsigned int i = 0; i < length; i++) {
     Serial.print((char)payload[i]);
   }
   Serial.println();
