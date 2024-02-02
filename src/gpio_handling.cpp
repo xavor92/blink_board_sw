@@ -39,9 +39,9 @@ void setup_gpio()
   }
 
   Serial.print("Button states: [");
-  Serial.print(mcp.digitalRead(PIN_BTN_1));
+  Serial.print(gpio_get_button(PIN_BTN_1));
   Serial.print("] [");
-  Serial.print(mcp.digitalRead(PIN_BTN_2));
+  Serial.print(gpio_get_button(PIN_BTN_2));
   Serial.println("]");
 }
 

@@ -30,18 +30,23 @@ void setup_wifi() {
   Serial.println("\n Starting");
 
   String ap_name = "BLINK_Board_" + WiFi.macAddress();
+  gpio_set_led(PIN_RED1_LED, ON);
   res = wm.autoConnect(ap_name.c_str());
   if(!res) {
     Serial.println("Failed to connect or hit timeout");
   } else { 
     Serial.println("connected...yeey :)");
+    gpio_set_led(PIN_RED1_LED, OFF);
+    gpio_set_led(PIN_GREEN1_LED, ON);
+    delay(500);
+    gpio_set_led(PIN_GREEN1_LED, OFF);
   }
 
   Serial.setDebugOutput(false);
 }
 
 PubSubClient mqtt_client(wifi_client);
-void callback(char* topic, byte* payload, unsigned int length) {
+void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("] ");
@@ -60,9 +65,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
   four_led_off = millis() + four_led_period;
 }
 
-void reconnect() {
-  // Loop until we're reconnected
-  while (!mqtt_client.connected()) {
+unsigned long next_mqtt_reconnect;
+void mqtt_reconnect() {
+  // if we end up here, we're not connected -> signal by LED
+  gpio_set_led(PIN_RED2_LED, ON);
+  // Try to reconnect, but only if we have not tried in the last 5 seconds
+  if (millis() > next_mqtt_reconnect) {
     Serial.print("Attempting MQTT connection...");
     // Create a random client ID
     String clientId = "ESP8266Client-";
@@ -70,6 +78,7 @@ void reconnect() {
     // Attempt to connect
     if (mqtt_client.connect(clientId.c_str(), mqtt_user, mqtt_password)) {
       Serial.println("connected");
+      gpio_set_led(PIN_RED2_LED, OFF);
       // Once connected, publish an announcement...
       mqtt_client.publish("blink", "hello world");
       // ... and resubscribe
@@ -78,18 +87,9 @@ void reconnect() {
       Serial.print("failed, rc=");
       Serial.print(mqtt_client.state());
       Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
-      delay(5000);
+      next_mqtt_reconnect = millis() + 5000;
     }
   }
-}
-
-void setup() {
-  Serial.begin(115200);
-  setup_gpio();
-  setup_wifi();
-  mqtt_client.setServer(mqtt_domain, 41420);
-  mqtt_client.setCallback(callback);
 }
 
 void check_button_and_publish() {
@@ -98,7 +98,7 @@ void check_button_and_publish() {
   if (gpio_get_button(PIN_BTN_1) == PRESSED && now - lastMsg > 2000) {
     lastMsg = now;
     ++value;
-    snprintf (msg, MSG_BUFFER_SIZE, "hello world #%ld", value);
+    snprintf (msg, MSG_BUFFER_SIZE, "ButtonPressed #%ld", value);
     Serial.print("Publish message: ");
     Serial.println(msg);
     mqtt_client.publish("blink", msg);
@@ -111,6 +111,15 @@ void delete_wifi_data() {
   Serial.println(
     "aaaand its gone"
   );
+}
+
+void setup() {
+  Serial.begin(115200);
+  setup_gpio();
+  setup_wifi();
+  mqtt_client.setServer(mqtt_domain, 41420);
+  mqtt_client.setCallback(mqtt_callback);
+  mqtt_reconnect();
 }
 
 void loop()
@@ -139,7 +148,7 @@ void loop()
   }
 
   if (!mqtt_client.connected()) {
-    reconnect();
+    mqtt_reconnect();
   }
   mqtt_client.loop();
 
