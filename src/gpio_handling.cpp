@@ -32,6 +32,7 @@ void setup_gpio()
 
   // Test outputs
   for(i = 0; i<(sizeof(leds)/sizeof(leds[0])); i++) {
+    mcp.pinMode(leds[i], OUTPUT);
     gpio_set_led(leds[i], ON);
     delay(100);
     gpio_set_led(leds[i], OFF);
