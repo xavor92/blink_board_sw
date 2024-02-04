@@ -9,15 +9,6 @@
 
 #define MSG_BUFFER_SIZE	(50)
 char msg[MSG_BUFFER_SIZE];
-long int value = 0;
-
-const unsigned long blink_period = 5000;
-const unsigned long blink_on_phase = 500;
-unsigned long next_blink;
-bool blink_led_state;  // true = on
-bool four_led_state;
-const unsigned long four_led_period = 1000;
-unsigned long four_led_off;
 
 WiFiClient wifi_client;
 void setup_wifi() {
@@ -55,14 +46,23 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println();
 
-  // turn on four LEDs
-  gpio_set_led(PIN_RED1_LED, ON);
-  gpio_set_led(PIN_RED2_LED, ON);
-  gpio_set_led(PIN_GREEN1_LED, ON);
-  gpio_set_led(PIN_GREEN2_LED, ON);
-  
-  four_led_state = true;
-  four_led_off = millis() + four_led_period;
+  // do stuff with leds
+  const unsigned long four_led_period = 1000;
+  uint8_t four_leds[4] ={PIN_RED1_LED, PIN_RED2_LED, PIN_GREEN1_LED, PIN_GREEN2_LED};
+
+  for(unsigned int i = 0; i < sizeof(four_leds)/sizeof(four_leds[0]); i++) {
+    gpio_set_led(four_leds[i], ON);
+  }
+
+  queued_led_change_t four_led_off = {
+    .led_pin = 0,
+    .led_state = OFF,
+    .timestamp = millis() + four_led_period
+  };
+  for(unsigned int i = 0; i < sizeof(four_leds)/sizeof(four_leds[0]); i++) {
+    four_led_off.led_pin = four_leds[i];
+    queue_led_change(four_led_off);
+  }
 }
 
 unsigned long next_mqtt_reconnect;
@@ -93,12 +93,13 @@ void mqtt_reconnect() {
 }
 
 void check_button_and_publish() {
+  static unsigned int value = 0;
   static unsigned long lastMsg = 0;
   unsigned long now = millis();
   if (gpio_get_button(PIN_BTN_1) == PRESSED && now - lastMsg > 2000) {
     lastMsg = now;
     ++value;
-    snprintf (msg, MSG_BUFFER_SIZE, "ButtonPressed #%ld", value);
+    snprintf (msg, MSG_BUFFER_SIZE, "ButtonPressed #%d", value);
     Serial.print("Publish message: ");
     Serial.println(msg);
     mqtt_client.publish("blink", msg);
@@ -124,27 +125,21 @@ void setup() {
 
 void loop()
 {
+  static unsigned long next_blink;
+  const unsigned long blink_period = 1000;
+  const unsigned long blink_on_phase = 500;
+
   // blink LED every 5s for 500ms
   unsigned long now = millis();
-  if (!blink_led_state && now > next_blink) {
-    // turn led on
+  if (now > next_blink) {
+    next_blink = now + blink_period;
     gpio_set_led(PIN_BLINK_LED, ON);
-    blink_led_state = true;
-  }
-
-  // turn it off later
-  if (blink_led_state && now > (next_blink + blink_on_phase)) {
-    next_blink += blink_period;
-    gpio_set_led(PIN_BLINK_LED, OFF);
-    blink_led_state = false;
-  }
-
-  // turn off other LEDs after callback turned them on
-  if (four_led_state && now > four_led_off) {
-    gpio_set_led(PIN_RED1_LED, OFF);
-    gpio_set_led(PIN_RED2_LED, OFF);
-    gpio_set_led(PIN_GREEN1_LED, OFF);
-    gpio_set_led(PIN_GREEN2_LED, OFF);
+    queued_led_change_t blink_led_off = {
+      .led_pin = PIN_BLINK_LED,
+      .led_state = OFF,
+      .timestamp = now + blink_on_phase
+    };
+    queue_led_change(blink_led_off);
   }
 
   if (!mqtt_client.connected()) {
@@ -153,4 +148,5 @@ void loop()
   mqtt_client.loop();
 
   check_button_and_publish();
+  handle_led_queue();
 }
