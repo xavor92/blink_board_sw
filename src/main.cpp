@@ -17,8 +17,8 @@ void setup() {
 void loop()
 {
   static unsigned long next_blink;
-  const unsigned long blink_period = 1000;
-  const unsigned long blink_on_phase = 500;
+  const unsigned long blink_period = 10000;
+  const unsigned long blink_on_phase = 100;
 
   // blink LED every 5s for 500ms
   unsigned long now = millis();
