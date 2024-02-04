@@ -12,6 +12,7 @@ PubSubClient mqtt_client(wifi_client);
 char msg[MSG_BUFFER_SIZE];
 
 void mqtt_callback(char* topic, byte* payload, unsigned int length) {
+  const unsigned long four_led_period = 1000;
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("] ");
@@ -20,22 +21,31 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println();
 
-  // do stuff with leds
-  const unsigned long four_led_period = 1000;
-  uint8_t four_leds[4] ={PIN_RED1_LED, PIN_RED2_LED, PIN_GREEN1_LED, PIN_GREEN2_LED};
-
-  for(unsigned int i = 0; i < sizeof(four_leds)/sizeof(four_leds[0]); i++) {
-    gpio_set_led(four_leds[i], ON);
-  }
-
-  queued_led_change_t four_led_off = {
+  queued_led_change_t led_off_queue_elem = {
     .led_pin = 0,
     .led_state = OFF,
     .timestamp = millis() + four_led_period
   };
-  for(unsigned int i = 0; i < sizeof(four_leds)/sizeof(four_leds[0]); i++) {
-    four_led_off.led_pin = four_leds[i];
-    queue_led_change(four_led_off);
+
+  // check if string SW1=1 is contained in the payload
+  if (strstr((char*)payload, "SW1=1") != NULL) {
+    gpio_set_led(PIN_RED1_LED, ON);
+    led_off_queue_elem.led_pin = PIN_RED1_LED;
+    queue_led_change(led_off_queue_elem);
+
+    gpio_set_led(PIN_RED2_LED, ON);
+    led_off_queue_elem.led_pin = PIN_RED2_LED;
+    queue_led_change(led_off_queue_elem);
+  }
+
+  if (strstr((char*)payload, "SW2=1") != NULL) {
+    gpio_set_led(PIN_GREEN1_LED, ON);
+    led_off_queue_elem.led_pin = PIN_GREEN1_LED;
+    queue_led_change(led_off_queue_elem);
+
+    gpio_set_led(PIN_GREEN2_LED, ON);
+    led_off_queue_elem.led_pin = PIN_GREEN2_LED;
+    queue_led_change(led_off_queue_elem);
   }
 }
 
