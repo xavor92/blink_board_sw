@@ -17,8 +17,8 @@ typedef enum led_state {
 } led_state_t;
 
 typedef enum button_state {
+  UNPRESSED,
   PRESSED,
-  UNPRESSED
 } button_state_t;
 
 typedef struct {

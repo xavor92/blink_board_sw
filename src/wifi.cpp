@@ -7,6 +7,7 @@
 
 WiFiClient wifi_client;
 WiFiManagerParameter name("name", "Your Name", "", 16);
+char eeprom_name[17];
 
 void setup_wifi() {
   bool res;
@@ -17,7 +18,6 @@ void setup_wifi() {
 
   // Load potentially saved name from EEPROM
   EEPROM.begin(512);
-  char eeprom_name[17];
   for (int i = 0; i < 16; i++) {
     eeprom_name[i] = EEPROM.read(i);
   }
@@ -74,11 +74,14 @@ void setup_wifi() {
   Serial.setDebugOutput(false);
 }
 
-
 void delete_wifi_data() {
   WiFi.disconnect(true);
   ESP.eraseConfig();
   Serial.println(
     "aaaand its gone"
   );
+}
+
+String get_eeprom_name() {
+  return String(eeprom_name);
 }

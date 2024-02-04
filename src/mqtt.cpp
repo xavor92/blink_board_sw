@@ -54,7 +54,8 @@ void mqtt_reconnect() {
       Serial.println("connected");
       gpio_set_led(PIN_RED2_LED, OFF);
       // Once connected, publish an announcement...
-      mqtt_client.publish("blink", "hello world");
+      String message = "Online: BLINK Board" + get_eeprom_name();
+      mqtt_client.publish("blink", message.c_str());
       // ... and resubscribe
       mqtt_client.subscribe("blink");
     } else {
@@ -67,16 +68,21 @@ void mqtt_reconnect() {
 }
 
 void check_button_and_publish() {
-  static unsigned int value = 0;
+  static unsigned int msgs_send = 0;
   static unsigned long lastMsg = 0;
+  button_state_t btn1, btn2;
   unsigned long now = millis();
-  if (gpio_get_button(PIN_BTN_1) == PRESSED && now - lastMsg > 2000) {
-    lastMsg = now;
-    ++value;
-    snprintf (msg, MSG_BUFFER_SIZE, "ButtonPressed #%d", value);
-    Serial.print("Publish message: ");
-    Serial.println(msg);
-    mqtt_client.publish("blink", msg);
+  if (now - lastMsg > 2000) {
+    btn1 = gpio_get_button(PIN_BTN_1);
+    btn2 = gpio_get_button(PIN_BTN_2); 
+    if ((btn1 == PRESSED || btn2 == PRESSED)) {
+      lastMsg = now;
+      ++msgs_send;
+      snprintf (msg, MSG_BUFFER_SIZE, "SW1=%d SW2=%d Pressed (#%d) by %s", btn1, btn2, msgs_send, get_eeprom_name().c_str());
+      Serial.print("Publish message: ");
+      Serial.println(msg);
+      mqtt_client.publish("blink", msg);
+    }
   }
 }
 
