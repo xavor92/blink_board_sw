@@ -2,39 +2,13 @@
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-#include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 
+#include "wifi.hpp"
 #include "gpio_handling.hpp"
 #include "secrets.hpp"
 
 #define MSG_BUFFER_SIZE	(50)
 char msg[MSG_BUFFER_SIZE];
-
-WiFiClient wifi_client;
-void setup_wifi() {
-  bool res;
-  Serial.setDebugOutput(true);
-
-  WiFi.mode(WIFI_STA);
-  WiFiManager wm;
-  delay(3000);
-  Serial.println("\n Starting");
-
-  String ap_name = "BLINK_Board_" + WiFi.macAddress();
-  gpio_set_led(PIN_RED1_LED, ON);
-  res = wm.autoConnect(ap_name.c_str());
-  if(!res) {
-    Serial.println("Failed to connect or hit timeout");
-  } else { 
-    Serial.println("connected...yeey :)");
-    gpio_set_led(PIN_RED1_LED, OFF);
-    gpio_set_led(PIN_GREEN1_LED, ON);
-    delay(500);
-    gpio_set_led(PIN_GREEN1_LED, OFF);
-  }
-
-  Serial.setDebugOutput(false);
-}
 
 PubSubClient mqtt_client(wifi_client);
 void mqtt_callback(char* topic, byte* payload, unsigned int length) {
@@ -104,14 +78,6 @@ void check_button_and_publish() {
     Serial.println(msg);
     mqtt_client.publish("blink", msg);
   }
-}
-
-void delete_wifi_data() {
-  WiFi.disconnect(true);
-  ESP.eraseConfig();
-  Serial.println(
-    "aaaand its gone"
-  );
 }
 
 void setup() {
