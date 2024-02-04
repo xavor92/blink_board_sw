@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <ESP8266HTTPClient.h>
+#include <ESP8266httpUpdate.h>
 
 #include "mqtt.hpp"
 
@@ -11,15 +13,37 @@ PubSubClient mqtt_client(wifi_client);
 #define MSG_BUFFER_SIZE	(50)
 char msg[MSG_BUFFER_SIZE];
 
+void perform_ota_update() {
+  t_httpUpdate_return ret = ESPhttpUpdate.update("https://owestermann.de/api/firmware/blinkboard/firmware.elf", "", "EC CA B3 46 7E 03 C7 50 A5 26 1D B7 6C F6 44 1D AC 73 CC 3E");
+
+  switch(ret) {
+    case HTTP_UPDATE_FAILED:
+      Serial.printf("HTTP_UPDATE_FAILD Error (%d): %s\n", ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
+      break;
+
+    case HTTP_UPDATE_NO_UPDATES:
+      Serial.println("HTTP_UPDATE_NO_UPDATES");
+      break;
+
+    case HTTP_UPDATE_OK:
+      Serial.println("HTTP_UPDATE_OK");
+      break;
+  }
+}
+
 void mqtt_callback(char* topic, byte* payload, unsigned int length) {
   const unsigned long four_led_period = 1000;
   Serial.print("Message arrived [");
   Serial.print(topic);
-  Serial.print("] ");
+  Serial.print("]: ");
   for (unsigned int i = 0; i < length; i++) {
     Serial.print((char)payload[i]);
   }
   Serial.println();
+
+  if (strstr((char*)payload, "OTAUpdate") != NULL) {
+    perform_ota_update();
+  }
 
   queued_led_change_t led_off_queue_elem = {
     .led_pin = 0,
@@ -80,15 +104,41 @@ void mqtt_reconnect() {
 void check_button_and_publish() {
   static unsigned int msgs_send = 0;
   static unsigned long lastMsg = 0;
+  const unsigned long debound_period_ms = 100;
   button_state_t btn1, btn2;
   unsigned long now = millis();
   if (now - lastMsg > 2000) {
     btn1 = gpio_get_button(PIN_BTN_1);
     btn2 = gpio_get_button(PIN_BTN_2); 
-    if ((btn1 == PRESSED || btn2 == PRESSED)) {
+
+    if (btn1 == PRESSED || btn2 == PRESSED) {
+      // if any button is pressed, wait debouncing period and check again to allow for double presses
+      // if only a single button is pressed, publish a message, if both buttons are pressed, wait for 3s to check if they are still pressed.
+      // if so, publish a message for OTA update
+      delay(debound_period_ms);
+      btn1 = gpio_get_button(PIN_BTN_1);
+      btn2 = gpio_get_button(PIN_BTN_2);
+
+      Serial.print("Button states: [");
+      Serial.print(btn1 == PRESSED ? "PRESSED" : "UNPRESSED");
+      Serial.print("] [");
+      Serial.print(btn2 == PRESSED ? "PRESSED" : "UNPRESSED");
+      Serial.println("]");
+
+      if (btn1 == PRESSED && btn2 == PRESSED) {
+        delay(3000);
+        btn1 = gpio_get_button(PIN_BTN_1);
+        btn2 = gpio_get_button(PIN_BTN_2);
+      }
+
+      if (btn1 == UNPRESSED || btn2 == UNPRESSED) {
+        snprintf(msg, MSG_BUFFER_SIZE, "SW1=%d SW2=%d Pressed (#%d) by %s", btn1, btn2, msgs_send, get_eeprom_name().c_str());
+      } else if (btn2 == PRESSED && btn1 == PRESSED) {
+        snprintf(msg, MSG_BUFFER_SIZE, "OTAUpdate SW1=%d SW2=%d Pressed (#%d) by %s", btn1, btn2, msgs_send, get_eeprom_name().c_str());
+      }
+
       lastMsg = now;
       ++msgs_send;
-      snprintf (msg, MSG_BUFFER_SIZE, "SW1=%d SW2=%d Pressed (#%d) by %s", btn1, btn2, msgs_send, get_eeprom_name().c_str());
       Serial.print("Publish message: ");
       Serial.println(msg);
       mqtt_client.publish("blink", msg);

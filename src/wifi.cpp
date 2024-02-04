@@ -71,7 +71,7 @@ void setup_wifi() {
     gpio_set_led(PIN_GREEN1_LED, OFF);
   }
 
-  Serial.setDebugOutput(false);
+  //Serial.setDebugOutput(false);
 }
 
 void delete_wifi_data() {
