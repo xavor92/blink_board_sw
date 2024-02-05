@@ -76,7 +76,7 @@ void setup_wifi() {
 
     // Get the custom text value
     const char* custom_value = name.getValue();
-    Serial.println("Updated custom parameter: " + String(eeprom_name));
+    Serial.println("Updated custom parameter: " + String(custom_value));
 
     // Only write to EEPROM if the value has changed
     if (strcmp(custom_value, eeprom_name) != 0) {
